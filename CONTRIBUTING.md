@@ -10,11 +10,14 @@
 
 ## 开发流程
 
-1. Fork 仓库并从 `main` 创建短周期分支。
+1. 内部贡献者运行 `pnpm workflow:start feature <name>` 或 `pnpm workflow:start fix <name>` 创建短周期分支；外部贡献者从 fork 的 `main` 创建同样命名的分支。
 2. 执行 `pnpm install --frozen-lockfile` 安装依赖。
 3. 保持改动聚焦，行为变更需要新增或更新测试。
-4. 提交前至少运行 `pnpm test` 和 `pnpm typecheck`。
-5. 创建 Pull Request，说明问题、解决方案、验证方式与可能风险。
+4. 提交前运行 `pnpm verify`。
+5. 内部贡献者运行 `pnpm workflow:ship` 完成校验和 push，GitHub 会自动创建 Pull Request；外部贡献者从 fork 手动创建 Pull Request。
+6. 补全 PR 的问题、方案、验证方式与风险，等待 CI 和 review 通过后 Squash merge。
+
+完整分支、CI、部署和回滚流程见 [交付工作流](docs/engineering/delivery-workflow.md)。
 
 ## 代码约定
 

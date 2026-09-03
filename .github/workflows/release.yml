@@ -1,0 +1,167 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Existing immutable image tag to deploy (normally a commit SHA)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    outputs:
+      image_owner: ${{ steps.release.outputs.image_owner }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+    steps:
+      - name: Resolve image coordinates
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          image_owner="${GITHUB_REPOSITORY_OWNER,,}"
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            image_tag="$WORKFLOW_SHA"
+          else
+            image_tag="$REQUESTED_TAG"
+          fi
+
+          if [[ ! "$image_owner" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "Invalid GHCR owner: $image_owner" >&2
+            exit 1
+          fi
+          if [[ ! "$image_tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
+            echo "Invalid image tag: $image_tag" >&2
+            exit 1
+          fi
+
+          echo "image_owner=$image_owner" >>"$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >>"$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish image (${{ matrix.service }})
+    if: github.event_name == 'workflow_run'
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, web, worker]
+    steps:
+      - name: Require production browser API URL
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+        run: test -n "$NEXT_PUBLIC_API_BASE_URL"
+
+      - name: Check out verified commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.image_tag }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish immutable image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+          tags: |
+            ghcr.io/${{ needs.prepare.outputs.image_owner }}/teambuddy-${{ matrix.service }}:${{ needs.prepare.outputs.image_tag }}
+            ghcr.io/${{ needs.prepare.outputs.image_owner }}/teambuddy-${{ matrix.service }}:main
+
+  deploy:
+    name: Deploy production
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    needs: [prepare, publish]
+    runs-on: [self-hosted, linux, x64, teambuddy-production]
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out deployment definition
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && needs.prepare.outputs.image_tag || github.sha }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and restart services
+        env:
+          IMAGE_OWNER: ${{ needs.prepare.outputs.image_owner }}
+          IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+          PRODUCTION_ENV_FILE: ${{ vars.PRODUCTION_ENV_FILE }}
+          PRODUCTION_HEALTHCHECK_URL: ${{ vars.PRODUCTION_HEALTHCHECK_URL }}
+        run: |
+          if [[ -z "$PRODUCTION_ENV_FILE" || ! -r "$PRODUCTION_ENV_FILE" ]]; then
+            echo "PRODUCTION_ENV_FILE must point to a readable file on the runner host." >&2
+            exit 1
+          fi
+
+          docker compose \
+            --project-name teambuddy \
+            --env-file "$PRODUCTION_ENV_FILE" \
+            --file compose.production.yml \
+            pull
+          docker compose \
+            --project-name teambuddy \
+            --env-file "$PRODUCTION_ENV_FILE" \
+            --file compose.production.yml \
+            up --detach --remove-orphans
+
+          healthcheck_url="${PRODUCTION_HEALTHCHECK_URL:-http://127.0.0.1:3001/health}"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$healthcheck_url" >/dev/null; then
+              echo "Production is healthy at image tag $IMAGE_TAG."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose \
+            --project-name teambuddy \
+            --env-file "$PRODUCTION_ENV_FILE" \
+            --file compose.production.yml \
+            ps
+          echo "Production health check failed: $healthcheck_url" >&2
+          exit 1

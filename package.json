@@ -11,6 +11,9 @@
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "workflow:start": "bash scripts/workflow-start.sh",
+    "workflow:ship": "bash scripts/workflow-ship.sh",
     "e2e:core": "pnpm --filter @teambuddy/web e2e -- core-scheduling.spec.ts",
     "seed:core": "pnpm --filter @teambuddy/api db:seed:core"
   },
