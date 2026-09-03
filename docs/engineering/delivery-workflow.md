@@ -88,7 +88,8 @@ pnpm workflow:ship
    - `PRODUCTION_ENV_FILE=/opt/teambuddy/.env.production`
    - `PRODUCTION_URL=https://teambuddy.example.com`
    - `PRODUCTION_HEALTHCHECK_URL=http://127.0.0.1:3001/health`
-6. 完成一次 Runner 主机上的 Compose 配置检查后，将 Repository variable `PRODUCTION_DEPLOY_ENABLED` 设置为 `true`，此后 `main` 的成功 CI 会自动发布和部署。
+6. 在 Runner 主机的仓库 checkout 中执行 `pnpm production:preflight -- /opt/teambuddy/.env.production`，确认系统、文件权限和 Compose 配置全部通过。该检查不会启动或修改服务，部署 workflow 也会在拉取镜像前自动执行它。
+7. 将 Repository variable `PRODUCTION_DEPLOY_ENABLED` 设置为 `true`，此后 `main` 的成功 CI 会自动发布和部署。
 
 数据库凭据只存在于 Runner 主机的受保护文件中，不进入 GitHub、日志或镜像。
 

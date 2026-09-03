@@ -132,6 +132,11 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && needs.prepare.outputs.image_tag || github.sha }}
 
+      - name: Validate production runner
+        env:
+          PRODUCTION_ENV_FILE: ${{ vars.PRODUCTION_ENV_FILE }}
+        run: bash scripts/production-preflight.sh "$PRODUCTION_ENV_FILE"
+
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
