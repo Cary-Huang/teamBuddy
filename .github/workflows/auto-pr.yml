@@ -1,0 +1,76 @@
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+
+permissions: {}
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  open-pull-request:
+    name: Open pull request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Create pull request when missing
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_PR_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+          USING_DEFAULT_TOKEN: ${{ secrets.AUTO_PR_TOKEN == '' }}
+        run: |
+          if [[ "$USING_DEFAULT_TOKEN" == "true" ]]; then
+            echo "::warning::AUTO_PR_TOKEN is not configured. GitHub will require a maintainer to approve pull_request workflow runs created by GITHUB_TOKEN. The push CI still runs automatically."
+          fi
+
+          existing_pr="$(gh pr list \
+            --base main \
+            --head "$HEAD_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "Pull request #$existing_pr already tracks $HEAD_BRANCH."
+            exit 0
+          fi
+
+          title="$(git log -1 --pretty=%s)"
+          body_file="$(mktemp)"
+          trap 'rm -f "$body_file"' EXIT
+          cat >"$body_file" <<EOF
+          ## 改动说明
+
+          由分支 \`$HEAD_BRANCH\` 自动创建。请补充问题背景、方案和风险。
+
+          ## 验证
+
+          - [ ] CI 全部通过
+          - [ ] 已补充必要测试，或说明不适用原因
+          - [ ] 用户可见变更已更新文档
+
+          ## 相关 Issue
+
+          <!-- 例如：Closes #123 -->
+          EOF
+
+          gh pr create \
+            --base main \
+            --head "$HEAD_BRANCH" \
+            --title "$title" \
+            --body-file "$body_file"

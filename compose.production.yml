@@ -1,0 +1,38 @@
+services:
+  api:
+    image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER is required}/teambuddy-api:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    environment:
+      API_PORT: 3001
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SEED_CORE_DEMO: "false"
+      WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER is required}/teambuddy-worker:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      WORKER_ID: ${WORKER_ID:-teambuddy-production-worker}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER is required}/teambuddy-web:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:3001
+      TEAM_ID: ${TEAM_ID:?TEAM_ID is required}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
