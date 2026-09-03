@@ -1,0 +1,25 @@
+{
+  "name": "teambuddy",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "e2e:core": "pnpm --filter @teambuddy/web e2e -- core-scheduling.spec.ts",
+    "seed:core": "pnpm --filter @teambuddy/api db:seed:core"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "postgres": "^3.4.9",
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

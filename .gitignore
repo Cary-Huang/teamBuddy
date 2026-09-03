@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.next
+.turbo
+dist
+coverage
+node_modules
+next-env.d.ts
+playwright-report
+test-results
+.superpowers/
+.worktrees/
+scripts/company-pg-init.sql

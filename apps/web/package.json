@@ -1,0 +1,23 @@
+{
+  "name": "@teambuddy/web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "e2e": "playwright test",
+    "test": "vitest run --passWithNoTests --exclude \"e2e/**\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "prettier --check \"app/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@teambuddy/contracts": "workspace:*",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@teambuddy/worker",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/bootstrap.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "NODE_OPTIONS=--conditions=development vitest run --passWithNoTests --exclude \"dist/**\"",
+    "test:db": "node -e \"if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required')\" && NODE_OPTIONS=--conditions=development vitest run src/outbox-poller.spec.ts src/handlers/recalculate-schedule-v1.spec.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@teambuddy/api": "workspace:*",
+    "@teambuddy/contracts": "workspace:*",
+    "@teambuddy/scheduler": "workspace:*",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "tsx": "latest"
+  }
+}

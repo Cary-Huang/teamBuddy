@@ -1,0 +1,35 @@
+{
+  "name": "@teambuddy/api",
+  "private": true,
+  "exports": {
+    "./backend": {
+      "types": "./src/public/backend.ts",
+      "development": "./src/public/backend.ts",
+      "default": "./dist/public/backend.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsx watch src/bootstrap.ts",
+    "build": "tsc -p tsconfig.json",
+    "db:init": "tsx src/platform/database/initialize.ts",
+    "db:migrate": "tsx src/platform/database/migrate.ts",
+    "db:seed:core": "tsx src/platform/database/seed-core-demo.ts",
+    "test": "NODE_OPTIONS=--conditions=development vitest run",
+    "test:db": "node -e \"if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required')\" && NODE_OPTIONS=--conditions=development vitest run --no-file-parallelism test/repository.integration.spec.ts test/migration.integration.spec.ts test/migration-guard.spec.ts test/database-ownership.spec.ts test/core-api.e2e.spec.ts test/planning-api.e2e.spec.ts test/seed-core-demo.integration.spec.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm typecheck:test",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
+    "lint": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@nestjs/common": "latest",
+    "@nestjs/core": "latest",
+    "@nestjs/platform-fastify": "latest",
+    "@teambuddy/contracts": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10",
+    "tsx": "latest"
+  }
+}

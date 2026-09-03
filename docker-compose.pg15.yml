@@ -1,0 +1,15 @@
+# Local PostgreSQL service for development and open-source evaluation.
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: teambuddy
+      POSTGRES_USER: teambuddy
+      POSTGRES_PASSWORD: teambuddy_local
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teambuddy -d teambuddy"]
+      interval: 2s
+      timeout: 2s
+      retries: 20

@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      API_PORT: 3001
+      # 完整连接串仅从本地环境文件注入，避免在可同步到 GitHub 的配置中保存凭据。
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # 本地 Compose 默认写入幂等演示数据；生产部署不设置此变量即可关闭。
+      SEED_CORE_DEMO: ${SEED_CORE_DEMO:-true}
+      # 支持环境变量注入，默认允许 localhost，支持逗号分隔的多源（如 http://localhost:3000,http://127.0.0.1:3000）
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health >/dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      WORKER_ID: teambuddy-compose-worker
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+    environment:
+      API_BASE_URL: http://api:3001
+      TEAM_ID: ${TEAM_ID:-70fc9bea-9d01-5174-8d0d-8a66b183a4f2}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
