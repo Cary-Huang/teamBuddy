@@ -145,9 +145,14 @@ jobs:
           IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
           PRODUCTION_ENV_FILE: ${{ vars.PRODUCTION_ENV_FILE }}
           PRODUCTION_HEALTHCHECK_URL: ${{ vars.PRODUCTION_HEALTHCHECK_URL }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
         run: |
           if [[ -z "$PRODUCTION_ENV_FILE" || ! -r "$PRODUCTION_ENV_FILE" ]]; then
             echo "PRODUCTION_ENV_FILE must point to a readable file on the runner host." >&2
+            exit 1
+          fi
+          if [[ -z "$PRODUCTION_URL" ]]; then
+            echo "Production Environment variable PRODUCTION_URL is required." >&2
             exit 1
           fi
 
@@ -163,8 +168,17 @@ jobs:
             up --detach --remove-orphans
 
           healthcheck_url="${PRODUCTION_HEALTHCHECK_URL:-http://127.0.0.1:3001/health}"
+          expected_services=$'api\nweb\nworker'
           for attempt in {1..30}; do
-            if curl --fail --silent --show-error "$healthcheck_url" >/dev/null; then
+            running_services="$(docker compose \
+              --project-name teambuddy \
+              --env-file "$PRODUCTION_ENV_FILE" \
+              --file compose.production.yml \
+              ps --services --filter status=running | sort)"
+
+            if [[ "$running_services" == "$expected_services" ]] \
+              && curl --fail --silent "$healthcheck_url" >/dev/null \
+              && curl --fail --silent --location "$PRODUCTION_URL" >/dev/null; then
               echo "Production is healthy at image tag $IMAGE_TAG."
               exit 0
             fi
@@ -176,5 +190,5 @@ jobs:
             --env-file "$PRODUCTION_ENV_FILE" \
             --file compose.production.yml \
             ps
-          echo "Production health check failed: $healthcheck_url" >&2
+          echo "Production health check failed. Verify all services, $healthcheck_url, and $PRODUCTION_URL." >&2
           exit 1

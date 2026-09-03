@@ -100,7 +100,7 @@ pnpm workflow:ship
 docker compose --project-name teambuddy --env-file <生产环境文件> -f compose.production.yml up --detach --remove-orphans
 ```
 
-部署后最多等待 60 秒检查 API `/health`。失败时 workflow 会失败并保留容器状态用于诊断。
+部署后最多等待 60 秒，要求 API、Web、Worker 三个容器均处于 running，同时 API 健康地址和生产 Web 地址均可访问。任一条件失败时 workflow 会失败并输出容器状态用于诊断。
 
 需要回滚时，在 GitHub Actions 中手动运行 `Release`，输入上一个健康版本的完整 commit SHA。该流程不会重新构建镜像，只把生产环境切回指定的已发布版本，并再次执行健康检查。
 
