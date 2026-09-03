@@ -29,10 +29,15 @@ jobs:
 
       - name: Create pull request when missing
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_PR_TOKEN || github.token }}
           GH_REPO: ${{ github.repository }}
           HEAD_BRANCH: ${{ github.ref_name }}
+          USING_DEFAULT_TOKEN: ${{ secrets.AUTO_PR_TOKEN == '' }}
         run: |
+          if [[ "$USING_DEFAULT_TOKEN" == "true" ]]; then
+            echo "::warning::AUTO_PR_TOKEN is not configured. GitHub will require a maintainer to approve pull_request workflow runs created by GITHUB_TOKEN. The push CI still runs automatically."
+          fi
+
           existing_pr="$(gh pr list \
             --base main \
             --head "$HEAD_BRANCH" \

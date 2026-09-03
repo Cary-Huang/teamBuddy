@@ -50,6 +50,8 @@ pnpm workflow:ship
 - `Database integration (api|worker)`：使用隔离的 PostgreSQL 运行数据库测试。
 - `Container build (api|web|worker)`：验证三个生产 Dockerfile 可构建。
 
+内部标准分支的 push CI 是自动 PR 的主要门禁。GitHub 对默认 `GITHUB_TOKEN` 创建的 PR 有额外安全限制：对应的 `pull_request` CI 需要维护者批准，但同一 commit 的 push CI 不受影响。配置下文的 `AUTO_PR_TOKEN` 后，两类 CI 都会直接运行。
+
 建议为 `main` 配置 branch protection/ruleset：
 
 1. Require a pull request before merging，至少 1 人审批。
@@ -62,6 +64,8 @@ pnpm workflow:ship
 ### 自动 PR
 
 在 `Settings -> Actions -> General -> Workflow permissions` 保持默认只读权限，并启用 **Allow GitHub Actions to create and approve pull requests**。工作流自身只为自动 PR job 申请 `contents: read` 和 `pull-requests: write`。
+
+默认 `GITHUB_TOKEN` 已足够自动创建 PR，但 GitHub 会要求维护者批准该 PR 触发的 `pull_request` workflow。若要消除这一步人工操作，在 Repository Actions secrets 中添加 `AUTO_PR_TOKEN`：使用细粒度 Personal Access Token，并仅授权本仓库的 `Contents: read` 与 `Pull requests: read and write`。工作流会优先使用该 secret；不要把 Token 写入仓库、环境示例或日志。团队规模扩大后可将它替换为 GitHub App installation token。
 
 ### 发布参数
 
