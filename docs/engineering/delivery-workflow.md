@@ -72,8 +72,11 @@ pnpm workflow:ship
 创建 Repository variable：
 
 - `NEXT_PUBLIC_API_BASE_URL`：浏览器访问的生产 API 地址，例如 `https://api.teambuddy.example.com`。
+- `PRODUCTION_DEPLOY_ENABLED`：生产发布总闸门。环境未准备好时保持未配置或 `false`；完成下方 Environment、环境文件和 Runner 配置后，最后设置为 `true`。
 
 每次 `main` 的 CI 成功后，`.github/workflows/release.yml` 将 API、Web、Worker 镜像发布到 GHCR，同时写入 commit SHA 与 `main` 两种 tag。实际部署始终使用 SHA tag。
+
+`PRODUCTION_DEPLOY_ENABLED` 未启用时，Release 只运行一个说明状态的成功 job，不发布镜像，也不会占用 self-hosted Runner。因此可以先合入工作流，待生产基础设施就绪后再开启自动发布。
 
 ### 生产 Environment 与 Runner
 
@@ -85,6 +88,7 @@ pnpm workflow:ship
    - `PRODUCTION_ENV_FILE=/opt/teambuddy/.env.production`
    - `PRODUCTION_URL=https://teambuddy.example.com`
    - `PRODUCTION_HEALTHCHECK_URL=http://127.0.0.1:3001/health`
+6. 完成一次 Runner 主机上的 Compose 配置检查后，将 Repository variable `PRODUCTION_DEPLOY_ENABLED` 设置为 `true`，此后 `main` 的成功 CI 会自动发布和部署。
 
 数据库凭据只存在于 Runner 主机的受保护文件中，不进入 GitHub、日志或镜像。
 
